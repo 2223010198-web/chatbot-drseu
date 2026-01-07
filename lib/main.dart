@@ -1,20 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'features/auth/login_screen.dart';
-import 'features/dashboard/dashboard_screen.dart'; // Crearemos un placeholder abajo
-import 'services/auth_service.dart';
+// import 'features/auth/login_screen.dart'; // YA NO LO NECESITAMOS
+// import 'services/auth_service.dart';      // YA NO LO NECESITAMOS
 import 'features/cursos/courses_list_screen.dart';
-// --- CONFIGURACIÓN DE FIREBASE ---
-// (Si sigues usando la configuración manual, pégala aquí dentro del main)
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Intenta la inicialización automática primero
+  // Inicialización simple para Database
   try {
     await Firebase.initializeApp();
-    print("✅ Firebase inicializado automáticamente (Leyendo JSON)");
+    print("✅ Firebase conectado");
   } catch (e) {
-    print("❌ Error en init automático: $e");
+    print("❌ Error Firebase: $e");
   }
 
   runApp(MyApp());
@@ -30,19 +28,8 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
       ),
-      // StreamBuilder escucha cambios en la autenticación
-      home: StreamBuilder(
-        stream: AuthService().authStateChanges,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Center(child: CircularProgressIndicator());
-          }
-          if (snapshot.hasData) {
-            return MainLayout(); // Si hay usuario, vamos al Dashboard
-          }
-          return LoginScreen(); // Si no, al Login
-        },
-      ),
+      // --- CAMBIO PRINCIPAL: Vamos directo al Layout ---
+      home: MainLayout(),
     );
   }
 }
@@ -54,13 +41,12 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> {
-  int _currentIndex = 1; // Empezamos en el centro (Gestión)
+  int _currentIndex = 1; // Empezamos en Gestión (Centro)
 
-  // Aquí definiremos las 3 vistas principales
   final List<Widget> _pages = [
-    Center(child: Text("Vista Matriculados (Próximamente)")), // Index 0
-    CoursesListScreen(),                                      // Index 1 (NUESTRO GESTOR)
-    Center(child: Text("Dashboard Analítica")),               // Index 2
+    Center(child: Text("Vista Matriculados (Próximamente)")),
+    CoursesListScreen(),
+    Center(child: Text("Dashboard Analítica")),
   ];
 
   @override

@@ -43,8 +43,8 @@ dependencies:
   #firebase_database: ^12.1.1
 
   # Autenticación
-  firebase_auth: ^5.0.0
-  google_sign_in: ^6.2.1
+ # firebase_auth: ^5.0.0
+#  google_sign_in: ^6.2.1
 
   # Manejo de Archivos y Google Drive
   file_picker: ^8.0.0       # Para seleccionar el PDF del celular
