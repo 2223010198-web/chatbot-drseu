@@ -381,6 +381,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                         dias: [],
                         horaInicio: '18:00', horaFin: '20:00',
                         fechaInicio: '', fechaFin: '',
+                        modalidad: 'Virtual',
                       ));
                     });
                   },
@@ -419,8 +420,31 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                           )
                         ],
                       ),
-                      SizedBox(height: 10),
-
+                      SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Text("Modalidad:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                          SizedBox(width: 10),
+                          ChoiceChip(
+                            label: Text("Virtual", style: TextStyle(fontSize: 12)),
+                            selected: grupo.modalidad == 'Virtual',
+                            selectedColor: Colors.teal.shade100,
+                            onSelected: (selected) {
+                              if (selected) setState(() => grupo.modalidad = 'Virtual');
+                            },
+                          ),
+                          SizedBox(width: 5),
+                          ChoiceChip(
+                            label: Text("Presencial", style: TextStyle(fontSize: 12)),
+                            selected: grupo.modalidad == 'Presencial',
+                            selectedColor: Colors.teal.shade100,
+                            onSelected: (selected) {
+                              if (selected) setState(() => grupo.modalidad = 'Presencial');
+                            },
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8),
                       // 2. Fechas (Inicio / Fin)
                       Row(
                         children: [

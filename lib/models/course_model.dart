@@ -87,6 +87,7 @@ class Grupo {
   String horaFin;
   String fechaInicio; // NUEVO
   String fechaFin;    // NUEVO
+  String modalidad;
 
   Grupo({
     required this.nombre,
@@ -95,6 +96,7 @@ class Grupo {
     required this.horaFin,
     required this.fechaInicio,
     required this.fechaFin,
+    this.modalidad = 'Virtual',
   });
 
   Map<String, dynamic> toJson() => {
@@ -104,6 +106,7 @@ class Grupo {
     'hora_fin': horaFin,
     'fecha_inicio': fechaInicio,
     'fecha_fin': fechaFin,
+    'modalidad': modalidad,
   };
 
   factory Grupo.fromMap(Map<String, dynamic> map) {
@@ -114,6 +117,7 @@ class Grupo {
       horaFin: map['hora_fin'] ?? '',
       fechaInicio: map['fecha_inicio'] ?? '',
       fechaFin: map['fecha_fin'] ?? '',
+      modalidad: map['modalidad'] ?? 'Virtual',
     );
   }
 }
