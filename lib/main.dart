@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-// import 'features/auth/login_screen.dart'; // YA NO LO NECESITAMOS
-// import 'services/auth_service.dart';      // YA NO LO NECESITAMOS
+// 1. IMPORTANTE: Importar paquete de localización
+import 'package:flutter_localizations/flutter_localizations.dart';
+
 import 'features/cursos/courses_list_screen.dart';
+import 'features/dashboard/dashboard_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,7 +30,20 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal),
       ),
-      // --- CAMBIO PRINCIPAL: Vamos directo al Layout ---
+
+      // --- 2. CONFIGURACIÓN DE IDIOMA (SOLUCIÓN ERROR ROJO) ---
+      // Esto permite que el DatePicker y TimePicker sepan cómo dibujar el español
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('es', 'ES'), // Español (Principal)
+        Locale('en', 'US'), // Inglés (Respaldo)
+      ],
+      // --------------------------------------------------------
+
       home: MainLayout(),
     );
   }
@@ -44,9 +59,20 @@ class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 1; // Empezamos en Gestión (Centro)
 
   final List<Widget> _pages = [
-    Center(child: Text("Vista Matriculados (Próximamente)")),
+    // Placeholder para la vista de matriculados
+    Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.people_outline, size: 80, color: Colors.grey),
+          SizedBox(height: 20),
+          Text("Vista Matriculados", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+          Text("(Próximamente)", style: TextStyle(color: Colors.grey)),
+        ],
+      ),
+    ),
     CoursesListScreen(),
-    Center(child: Text("Dashboard Analítica")),
+    DashboardScreen(),
   ];
 
   @override
@@ -58,7 +84,7 @@ class _MainLayoutState extends State<MainLayout> {
         onDestinationSelected: (index) {
           setState(() => _currentIndex = index);
         },
-        destinations: [
+        destinations: const [
           NavigationDestination(icon: Icon(Icons.people), label: 'Matriculados'),
           NavigationDestination(icon: Icon(Icons.edit_calendar), label: 'Gestión'),
           NavigationDestination(icon: Icon(Icons.bar_chart), label: 'Analítica'),

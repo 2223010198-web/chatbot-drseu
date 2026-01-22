@@ -35,10 +35,22 @@ android {
     }
 
     buildTypes {
-        release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+        getByName("debug") {
+            // 👇 ESTA ES LA SOLUCIÓN: Pon esto en false
+            isShrinkResources = false
+            isMinifyEnabled = false
+
+            // Lo que agregamos antes (déjalo igual)
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-TEST"
+            isDebuggable = true
+        }
+
+        getByName("release") {
+            // En release sí puedes querer optimizar
+            isShrinkResources = true
+            isMinifyEnabled = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
 }

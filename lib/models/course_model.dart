@@ -12,6 +12,7 @@ class Curso {
   String? brochureUrl;
   String? driveFileId;
   List<Grupo> grupos;
+  int orden;
 
   Curso({
     this.key,
@@ -27,6 +28,7 @@ class Curso {
     this.brochureUrl,
     this.driveFileId,
     required this.grupos,
+    this.orden = 9999,
   });
 
   Map<String, dynamic> toJson() {
@@ -46,6 +48,7 @@ class Curso {
       // Horario texto inteligente para el bot
       'horario': _generarHorarioTexto(),
       'fileName': titulo.toLowerCase().replaceAll(' ', '_'),
+      'orden': orden,
     };
   }
 
@@ -76,6 +79,7 @@ class Curso {
       brochureUrl: map['brochure_url'],
       driveFileId: map['drive_file_id'],
       grupos: listaGrupos,
+      orden: map['orden'] ?? 9999,
     );
   }
 }

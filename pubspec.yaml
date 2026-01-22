@@ -38,6 +38,9 @@ dependencies:
   firebase_core: ^3.0.0
   firebase_database: ^11.0.0
 
+
+  flutter_localizations:
+    sdk: flutter
   #cupertino_icons: ^1.0.8
   #firebase_core: ^4.3.0
   #firebase_database: ^12.1.1
@@ -54,10 +57,14 @@ dependencies:
   url_launcher: ^6.2.1      # Para abrir links
 
   # UI y Utilidades
-  intl: ^0.19.0             # Para formatear fechas y horas
+  intl: 0.20.2             # Para formatear fechas y horas
   fl_chart: ^0.66.0         # Para los gráficos del Dashboard
   font_awesome_flutter: ^10.6.0 # Iconos bonitos
   provider: ^6.1.1          # Para manejar el estado (Login, Datos del formulario)
+
+  excel: ^4.0.0
+  path_provider: ^2.1.2
+  share_plus: ^7.2.0
 
 dev_dependencies:
   flutter_test:
@@ -69,7 +76,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
-
+  flutter_launcher_icons: ^0.13.1
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -85,7 +92,14 @@ flutter:
   # assets:
   #   - images/a_dot_burr.jpeg
   #   - images/a_dot_ham.jpeg
-
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/icon/logo.png"
+  min_sdk_android: 21 # Soporte para versiones modernas
+  # Opcional: si quieres un color de fondo específico para íconos adaptativos
+  # adaptive_icon_background: "#FFFFFF"
+  # adaptive_icon_foreground: "assets/icon/logo.png"
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

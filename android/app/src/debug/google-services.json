@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1033800561405",
+    "firebase_url": "https://drseu-chatbot-test-default-rtdb.firebaseio.com",
+    "project_id": "drseu-chatbot-test",
+    "storage_bucket": "drseu-chatbot-test.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1033800561405:android:f4e1b2fa4d4301cfd54494",
+        "android_client_info": {
+          "package_name": "com.example.chatbot_drseu_v1.debug"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBIss9YtpXVa3oOwpyifFsBwJ28asFpLCo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

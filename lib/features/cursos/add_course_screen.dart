@@ -23,8 +23,8 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
   late TextEditingController _descCtrl;
   late TextEditingController _costoUCtrl;
   late TextEditingController _costoPCtrl;
-  late TextEditingController _costoCCtrl; // Recuperado: Costo Conadis
-  late TextEditingController _linkCtrl;   // Recuperado: Link
+  late TextEditingController _costoCCtrl;
+  late TextEditingController _linkCtrl;
 
   String _modalidad = 'Virtual';
   String _categoria = 'Cursos de Extensión';
@@ -38,7 +38,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
     'Otros'
   ];
 
-  PlatformFile? _pickedFile; // Para el Brochure
+  PlatformFile? _pickedFile;
   bool _isUploading = false;
   List<Grupo> _grupos = [];
 
@@ -68,7 +68,8 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
       _grupos.add(Grupo(
           nombre: 'Grupo 1', dias: [],
           horaInicio: '18:00', horaFin: '20:00',
-          fechaInicio: '', fechaFin: ''
+          fechaInicio: '', fechaFin: '',
+          modalidad: 'Virtual' // Default
       ));
     }
   }
@@ -107,10 +108,10 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
   }
 
   void _eliminarCategoriaActual() {
-    if (_categoriasOptions.length <= 1) return; // No borrar la última
+    if (_categoriasOptions.length <= 1) return;
     setState(() {
       _categoriasOptions.remove(_categoria);
-      _categoria = _categoriasOptions.first; // Volver a la primera
+      _categoria = _categoriasOptions.first;
     });
   }
 
@@ -122,7 +123,6 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
   }
 
   Future<void> _deleteCourse() async {
-    // Confirmación antes de borrar
     bool? confirm = await showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -137,7 +137,78 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
 
     if (confirm == true && widget.courseKey != null) {
       await _dbRef.child(widget.courseKey!).remove();
-      Navigator.pop(context); // Volver a la lista
+      Navigator.pop(context);
+    }
+  }
+
+  // --- SELECTORES DE FECHA Y HORA (MODIFICADO: ESPAÑOL + CARGAR VALOR ACTUAL) ---
+
+  Future<void> _selectDate(int groupIndex, bool isStart) async {
+    // 1. Intentar leer la fecha actual del input para mostrarla seleccionada
+    DateTime initialDate = DateTime.now();
+    String currentStr = isStart ? _grupos[groupIndex].fechaInicio : _grupos[groupIndex].fechaFin;
+
+    if (currentStr.isNotEmpty) {
+      try {
+        initialDate = DateFormat('dd/MM/yyyy').parse(currentStr);
+      } catch (_) {}
+    }
+
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: initialDate,
+      firstDate: DateTime(2024),
+      lastDate: DateTime(2030),
+      locale: const Locale('es', 'ES'), // <--- FORZAR ESPAÑOL
+      builder: (context, child) {
+        return Theme(
+          data: ThemeData.light().copyWith(
+            primaryColor: Colors.teal,
+            colorScheme: ColorScheme.light(primary: Colors.teal),
+          ),
+          child: child!,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        String f = DateFormat('dd/MM/yyyy').format(picked);
+        if (isStart) _grupos[groupIndex].fechaInicio = f; else _grupos[groupIndex].fechaFin = f;
+      });
+    }
+  }
+
+  Future<void> _selectTime(int index, bool isStart) async {
+    // 1. Intentar leer la hora actual
+    TimeOfDay initialTime = TimeOfDay(hour: 18, minute: 0);
+    String currentStr = isStart ? _grupos[index].horaInicio : _grupos[index].horaFin;
+
+    if (currentStr.isNotEmpty && currentStr.contains(":")) {
+      try {
+        final parts = currentStr.split(":");
+        initialTime = TimeOfDay(hour: int.parse(parts[0]), minute: int.parse(parts[1]));
+      } catch (_) {}
+    }
+
+    final TimeOfDay? picked = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+      builder: (context, child) {
+        // Forzar textos en español
+        return Localizations.override(
+          context: context,
+          locale: const Locale('es', 'ES'),
+          child: child,
+        );
+      },
+    );
+
+    if (picked != null) {
+      setState(() {
+        final t = "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
+        if (isStart) _grupos[index].horaInicio = t; else _grupos[index].horaFin = t;
+      });
     }
   }
 
@@ -154,32 +225,46 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
 
     setState(() => _isUploading = true);
 
-    String? brochureUrl = widget.cursoExistente?.brochureUrl;
-    String? driveId = widget.cursoExistente?.driveFileId;
-
-    // LÓGICA DE SUBIDA A DRIVE (Aquí conectaríamos el DriveService)
-    if (_pickedFile != null) {
-      // await DriveService().upload(_pickedFile!);
-      print("Simulando subida a Drive de: ${_pickedFile!.name}");
-      // brochureUrl = ...
-    }
-
-    final nuevoCurso = Curso(
-      titulo: _tituloCtrl.text,
-      descripcion: _descCtrl.text,
-      categoria: _categoria,
-      costoUntels: int.tryParse(_costoUCtrl.text) ?? 0,
-      costoPublico: int.tryParse(_costoPCtrl.text) ?? 0,
-      costoConadis: int.tryParse(_costoCCtrl.text) ?? 0, // RECUPERADO
-      linkInscripcion: _linkCtrl.text, // RECUPERADO
-      modalidad: _modalidad,
-      activo: true,
-      brochureUrl: brochureUrl,
-      driveFileId: driveId,
-      grupos: _grupos,
-    );
-
     try {
+      int ordenFinal = 9999;
+
+      if (widget.courseKey == null) {
+        // Lógica de orden para nuevos cursos
+        final snapshot = await _dbRef.orderByChild('orden').limitToLast(1).get();
+        if (snapshot.exists) {
+          final map = snapshot.value as Map;
+          final ultimoCurso = map.values.first as Map;
+          int maxOrden = ultimoCurso['orden'] ?? 0;
+          ordenFinal = maxOrden + 1;
+        } else {
+          ordenFinal = 1;
+        }
+      } else {
+        ordenFinal = widget.cursoExistente?.orden ?? 9999;
+      }
+
+      String? brochureUrl = widget.cursoExistente?.brochureUrl;
+      String? driveId = widget.cursoExistente?.driveFileId;
+
+      final nuevoCurso = Curso(
+        titulo: _tituloCtrl.text,
+        descripcion: _descCtrl.text,
+        categoria: _categoria,
+        // --- CORRECCIÓN AQUÍ: Convertimos a .toInt() ---
+        // Usamos num.tryParse para que acepte "80" o "80.0" y luego lo volvemos entero
+        costoUntels: (num.tryParse(_costoUCtrl.text) ?? 0).toInt(),
+        costoPublico: (num.tryParse(_costoPCtrl.text) ?? 0).toInt(),
+        costoConadis: (num.tryParse(_costoCCtrl.text) ?? 0).toInt(),
+        // ------------------------------------------------
+        linkInscripcion: _linkCtrl.text,
+        modalidad: _modalidad,
+        activo: widget.cursoExistente?.activo ?? true,
+        brochureUrl: brochureUrl,
+        driveFileId: driveId,
+        grupos: _grupos,
+        orden: ordenFinal,
+      );
+
       if (widget.courseKey == null) {
         await _dbRef.push().set(nuevoCurso.toJson());
       } else {
@@ -193,27 +278,6 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
     }
   }
 
-  // Funciones auxiliares de fecha y hora
-  Future<void> _selectDate(int groupIndex, bool isStart) async {
-    DateTime? picked = await showDatePicker(
-        context: context, initialDate: DateTime.now(), firstDate: DateTime(2024), lastDate: DateTime(2030));
-    if (picked != null) {
-      setState(() {
-        String f = DateFormat('dd/MM/yyyy').format(picked);
-        if (isStart) _grupos[groupIndex].fechaInicio = f; else _grupos[groupIndex].fechaFin = f;
-      });
-    }
-  }
-
-  Future<void> _selectTime(int index, bool isStart) async {
-    final TimeOfDay? picked = await showTimePicker(context: context, initialTime: TimeOfDay(hour: 18, minute: 0));
-    if (picked != null) {
-      setState(() {
-        final t = "${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}";
-        if (isStart) _grupos[index].horaInicio = t; else _grupos[index].horaFin = t;
-      });
-    }
-  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -292,7 +356,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
             ),
             SizedBox(height: 10),
 
-            // --- COSTOS (3 Columnas o 2 filas) ---
+            // --- COSTOS (3 Columnas) ---
             Row(
               children: [
                 Expanded(
@@ -313,7 +377,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                 SizedBox(width: 10),
                 Expanded(
                   child: TextFormField(
-                    controller: _costoCCtrl, // CAMPO RECUPERADO
+                    controller: _costoCCtrl,
                     decoration: InputDecoration(labelText: "CONADIS", prefixText: "S/ "),
                     keyboardType: TextInputType.number,
                   ),
@@ -322,7 +386,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
             ),
             SizedBox(height: 10),
 
-            // --- LINK INCRIPCIÓN (RECUPERADO) ---
+            // --- LINK INSCRIPCIÓN ---
             TextFormField(
               controller: _linkCtrl,
               decoration: InputDecoration(
@@ -333,7 +397,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
             ),
             SizedBox(height: 15),
 
-            // --- BROCHURE PDF (RECUPERADO) ---
+            // --- BROCHURE PDF ---
             Container(
               padding: EdgeInsets.all(10),
               decoration: BoxDecoration(
@@ -421,6 +485,8 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                         ],
                       ),
                       SizedBox(height: 8),
+
+                      // 2. Modalidad
                       Row(
                         children: [
                           Text("Modalidad:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
@@ -445,7 +511,8 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                         ],
                       ),
                       SizedBox(height: 8),
-                      // 2. Fechas (Inicio / Fin)
+
+                      // 3. Fechas (Inicio / Fin) - Trigger Pickers
                       Row(
                         children: [
                           Expanded(
@@ -481,7 +548,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                       ),
                       SizedBox(height: 10),
 
-                      // 3. Días (Chips)
+                      // 4. Días (Chips)
                       Text("Días:", style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                       Wrap(
                         spacing: 4,
@@ -499,8 +566,9 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                           );
                         }).toList(),
                       ),
+                      SizedBox(height: 10),
 
-                      // 4. Horas
+                      // 5. Horas
                       Row(
                         children: [
                           Expanded(
