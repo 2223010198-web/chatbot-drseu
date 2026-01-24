@@ -26,6 +26,10 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
   late TextEditingController _costoCCtrl;
   late TextEditingController _linkCtrl;
 
+  // NUEVOS CONTROLADORES PARA GOOGLE
+  late TextEditingController _formIdCtrl;
+  late TextEditingController _slideIdCtrl;
+
   String _modalidad = 'Virtual';
   String _categoria = 'Cursos de Extensión';
 
@@ -54,6 +58,10 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
     _linkCtrl = TextEditingController(text: c?.linkInscripcion ?? '');
     _modalidad = c?.modalidad ?? 'Virtual';
 
+    // Inicializar campos de Google
+    _formIdCtrl = TextEditingController(text: c?.idsGoogle?['formId'] ?? '');
+    _slideIdCtrl = TextEditingController(text: c?.idsGoogle?['slideTemplateId'] ?? '');
+
     // Si la categoría del curso no está en la lista, la agregamos
     if (c != null && c.categoria.isNotEmpty) {
       _categoria = c.categoria;
@@ -72,6 +80,19 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
           modalidad: 'Virtual' // Default
       ));
     }
+  }
+
+  // --- UTILIDAD: Extraer ID de URLs ---
+  String? extraerGoogleId(String input) {
+    if (input.isEmpty) return null;
+    if (!input.contains("http")) return input.trim();
+    // Intenta sacar lo que está entre /d/ y /
+    final regex = RegExp(r'/d/([a-zA-Z0-9-_]+)');
+    final match = regex.firstMatch(input);
+    if (match != null) {
+      return match.group(1);
+    }
+    return input; // Fallback
   }
 
   // --- LÓGICA DE NEGOCIO ---
@@ -243,6 +264,10 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
         ordenFinal = widget.cursoExistente?.orden ?? 9999;
       }
 
+      // Limpiar IDs de Google
+      String? cleanFormId = extraerGoogleId(_formIdCtrl.text);
+      String? cleanSlideId = extraerGoogleId(_slideIdCtrl.text);
+
       String? brochureUrl = widget.cursoExistente?.brochureUrl;
       String? driveId = widget.cursoExistente?.driveFileId;
 
@@ -263,6 +288,10 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
         driveFileId: driveId,
         grupos: _grupos,
         orden: ordenFinal,
+        idsGoogle: {
+          'formId': cleanFormId ?? '',
+          'slideTemplateId': cleanSlideId ?? '',
+        },
       );
 
       if (widget.courseKey == null) {
@@ -397,35 +426,58 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
             ),
             SizedBox(height: 15),
 
-            // --- BROCHURE PDF ---
+// --- NUEVA SECCIÓN: AUTOMATIZACIÓN GOOGLE ---
             Container(
-              padding: EdgeInsets.all(10),
+              padding: EdgeInsets.all(12),
               decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey),
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.blue.shade50,
+                border: Border.all(color: Colors.blue.shade200),
+                borderRadius: BorderRadius.circular(10),
               ),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.picture_as_pdf, color: Colors.red),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      _pickedFile != null
-                          ? "Nuevo: ${_pickedFile!.name}"
-                          : (widget.cursoExistente?.brochureUrl != null
-                          ? "PDF ya cargado (Mantener)"
-                          : "Sin Brochure PDF"),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  Row(
+                    children: [
+                      Icon(Icons.auto_awesome, color: Colors.blue),
+                      SizedBox(width: 8),
+                      Text("Automatización (Google)", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.blue.shade800)),
+                    ],
                   ),
-                  TextButton(
-                    onPressed: _pickBrochure,
-                    child: Text("SUBIR"),
-                  )
+                  SizedBox(height: 10),
+                  TextFormField(
+                    controller: _formIdCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'ID o Link del Google Form',
+                      hintText: 'Pega el link de edición aquí',
+                      prefixIcon: Icon(Icons.list_alt, size: 18),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
+                    ),
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  SizedBox(height: 10),
+                  TextFormField(
+                    controller: _slideIdCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'ID o Link de Plantilla Slides',
+                      hintText: 'Pega el link de la presentación aquí',
+                      prefixIcon: Icon(Icons.slideshow, size: 18),
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(),
+                    ),
+                    style: TextStyle(fontSize: 13),
+                  ),
+                  SizedBox(height: 5),
+                  Text(
+                    "Al guardar, los scripts actualizarán el formulario y generarán el PDF automáticamente.",
+                    style: TextStyle(fontSize: 11, color: Colors.grey.shade700, fontStyle: FontStyle.italic),
+                  ),
                 ],
               ),
             ),
-
             SizedBox(height: 20),
             Divider(thickness: 2),
 

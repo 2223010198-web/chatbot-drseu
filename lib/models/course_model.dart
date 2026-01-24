@@ -13,6 +13,7 @@ class Curso {
   String? driveFileId;
   List<Grupo> grupos;
   int orden;
+  Map<String, String>? idsGoogle;
 
   Curso({
     this.key,
@@ -29,6 +30,7 @@ class Curso {
     this.driveFileId,
     required this.grupos,
     this.orden = 9999,
+    this.idsGoogle,
   });
 
   Map<String, dynamic> toJson() {
@@ -49,6 +51,7 @@ class Curso {
       'horario': _generarHorarioTexto(),
       'fileName': titulo.toLowerCase().replaceAll(' ', '_'),
       'orden': orden,
+      'ids_google': idsGoogle,
     };
   }
 
@@ -63,6 +66,11 @@ class Curso {
     if (map['grupos'] != null) {
       final rawList = map['grupos'] as List<dynamic>;
       listaGrupos = rawList.map((item) => Grupo.fromMap(Map<String, dynamic>.from(item))).toList();
+    }
+
+    Map<String, String>? idsMap;
+    if (map['ids_google'] != null) {
+      idsMap = Map<String, String>.from(map['ids_google']);
     }
 
     return Curso(
@@ -80,6 +88,7 @@ class Curso {
       driveFileId: map['drive_file_id'],
       grupos: listaGrupos,
       orden: map['orden'] ?? 9999,
+      idsGoogle: idsMap,
     );
   }
 }
