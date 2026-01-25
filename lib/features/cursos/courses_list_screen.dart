@@ -19,23 +19,23 @@ class _CoursesListScreenState extends State<CoursesListScreen> {
     _cargarCursos();
   }
 
-  // Escucha los cambios en tiempo real
   void _cargarCursos() {
     _dbRef.onValue.listen((event) {
       final data = event.snapshot.value;
       final List<Curso> loaded = [];
       if (data != null && data is Map) {
         data.forEach((key, value) {
-          loaded.add(Curso.fromMap(key, value));
+          try {
+            loaded.add(Curso.fromMap(key, value));
+          } catch (e) {
+            print("Error cargando curso $key: $e");
+          }
         });
       }
 
-      // --- ORDENAMIENTO INTELIGENTE ---
-      // 1. Activos arriba, Inactivos abajo.
-      // 2. Respetar el 'orden' manual dentro de su grupo.
       loaded.sort((a, b) {
         if (a.activo != b.activo) {
-          return a.activo ? -1 : 1; // Si a es activo va antes
+          return a.activo ? -1 : 1;
         }
         return a.orden.compareTo(b.orden);
       });
@@ -49,12 +49,8 @@ class _CoursesListScreenState extends State<CoursesListScreen> {
     });
   }
 
-  // Función para reordenar y actualizar Firebase
   void _onReorder(int oldIndex, int newIndex) {
     if (newIndex > oldIndex) newIndex -= 1;
-
-    // Evitar mover un curso inactivo a la zona de activos o viceversa visualmente
-    // (Aunque el sort lo corregirá, es mejor evitar la confusión)
     final item = _cursos[oldIndex];
 
     setState(() {
@@ -62,7 +58,6 @@ class _CoursesListScreenState extends State<CoursesListScreen> {
       _cursos.insert(newIndex, item);
     });
 
-    // Actualizar indices en Firebase
     for (int i = 0; i < _cursos.length; i++) {
       final curso = _cursos[i];
       if (curso.orden != i + 1) {
@@ -71,38 +66,88 @@ class _CoursesListScreenState extends State<CoursesListScreen> {
     }
   }
 
-  // --- LÓGICA DE ACTIVAR / DESACTIVAR ---
-  void _showToggleStatusDialog(Curso curso) {
+  // --- DIÁLOGO DE ELIMINACIÓN PERMANENTE ---
+  void _confirmarEliminacionCurso(Curso curso) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(curso.activo ? "🛑 Desactivar Curso" : "✅ Activar Curso"),
-        content: Text(curso.activo
-            ? "El curso '${curso.titulo}' dejará de ser visible en el Chatbot y se moverá al final de esta lista.\n\n¿Deseas continuar?"
-            : "El curso '${curso.titulo}' volverá a ser visible para los usuarios y aparecerá en el listado.\n\n¿Deseas activarlo?"),
+        title: Text("⚠️ Eliminar Curso"),
+        content: Text("Estás a punto de eliminar '${curso.titulo}' permanentemente de la base de datos.\n\nEsta acción NO se puede deshacer."),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text("Cancelar", style: TextStyle(color: Colors.grey)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text("Cancelar")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: curso.activo ? Colors.red : Colors.green,
-              foregroundColor: Colors.white,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white),
+            onPressed: () async {
+              Navigator.pop(ctx);
+              // ELIMINAR DE FIREBASE
+              await _dbRef.child(curso.key!).remove();
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Curso eliminado")));
+            },
+            child: Text("ELIMINAR DEFINITIVAMENTE"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // --- DIÁLOGO DE OPCIONES (STATUS / DELETE) ---
+  void _showOptionsDialog(Curso curso) {
+    showDialog(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text(curso.titulo, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Text("Selecciona una acción:"),
+          ),
+
+          // OPCIÓN 1: ACTIVAR / DESACTIVAR
+          SimpleDialogOption(
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Row(
+              children: [
+                Icon(curso.activo ? Icons.visibility_off : Icons.visibility, color: curso.activo ? Colors.orange : Colors.green),
+                SizedBox(width: 15),
+                Text(curso.activo ? "Desactivar (Ocultar)" : "Activar (Visible)"),
+              ],
             ),
             onPressed: () async {
-              Navigator.of(ctx).pop();
-              // Actualizamos en Firebase
-              // Al cambiar 'activo', el listener _cargarCursos se disparará,
-              // detectará el cambio y lo mandará al final de la lista automáticamente por el sort.
+              Navigator.pop(ctx);
               await _dbRef.child(curso.key!).update({'activo': !curso.activo});
-
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(content: Text(curso.activo ? "Curso desactivado" : "Curso activado")),
               );
             },
-            child: Text(curso.activo ? "Desactivar" : "Activar"),
           ),
+
+          // OPCIÓN 2: ELIMINAR
+          SimpleDialogOption(
+            padding: EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+            child: Row(
+              children: [
+                Icon(Icons.delete_forever, color: Colors.red),
+                SizedBox(width: 15),
+                Text("Eliminar Curso", style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            onPressed: () {
+              Navigator.pop(ctx); // Cierra el menú de opciones
+              _confirmarEliminacionCurso(curso); // Abre la alerta de confirmación
+            },
+          ),
+
+          // OPCIÓN 3: CANCELAR
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0, top: 10),
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: Text("Cancelar"),
+              ),
+            ),
+          )
         ],
       ),
     );
@@ -128,22 +173,20 @@ class _CoursesListScreenState extends State<CoursesListScreen> {
           : ReorderableListView.builder(
         padding: EdgeInsets.only(bottom: 80),
         itemCount: _cursos.length,
-        // Importante: Desactivar el arrastre por defecto para poder usar onLongPress en la tarjeta
         buildDefaultDragHandles: false,
         onReorder: _onReorder,
         itemBuilder: (context, index) {
           final curso = _cursos[index];
 
           return Container(
-            key: ValueKey(curso.key), // Clave única necesaria para reorder
+            key: ValueKey(curso.key),
             margin: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
             child: InkWell(
-              // --- AQUÍ ESTÁ LA MAGIA DEL MANTENER PRESIONADO ---
-              onLongPress: () => _showToggleStatusDialog(curso),
+              // Llama al nuevo diálogo de opciones
+              onLongPress: () => _showOptionsDialog(curso),
               borderRadius: BorderRadius.circular(10),
               child: Card(
                 elevation: 2,
-                // Si está inactivo, lo ponemos un poco gris para diferenciar
                 color: curso.activo ? Colors.white : Colors.grey[200],
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 child: ListTile(
@@ -159,7 +202,7 @@ class _CoursesListScreenState extends State<CoursesListScreen> {
                     curso.titulo,
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
-                      decoration: curso.activo ? null : TextDecoration.lineThrough, // Tachado si inactivo
+                      decoration: curso.activo ? null : TextDecoration.lineThrough,
                       color: curso.activo ? Colors.black : Colors.grey[600],
                     ),
                   ),
@@ -167,8 +210,8 @@ class _CoursesListScreenState extends State<CoursesListScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        "${curso.categoria} • ${curso.modalidad}",
-                        style: TextStyle(color: curso.activo ? Colors.grey[700] : Colors.grey[500]),
+                        "${curso.categoria} • ${curso.modalidadCalculada.toUpperCase()}",
+                        style: TextStyle(color: curso.activo ? Colors.grey[700] : Colors.grey[500], fontSize: 12),
                       ),
                       SizedBox(height: 4),
                       Container(
@@ -179,7 +222,7 @@ class _CoursesListScreenState extends State<CoursesListScreen> {
                             border: Border.all(color: curso.activo ? Colors.green : Colors.red, width: 0.5)
                         ),
                         child: Text(
-                          curso.activo ? "🟢 Visible en Chat" : "🔴 Oculto",
+                          curso.activo ? "🟢 Visible" : "🔴 Oculto",
                           style: TextStyle(
                             color: curso.activo ? Colors.green[700] : Colors.red[700],
                             fontSize: 10,
@@ -203,7 +246,6 @@ class _CoursesListScreenState extends State<CoursesListScreen> {
                           ));
                         },
                       ),
-                      // Usamos ReorderableDragStartListener para que SOLO este icono sirva para arrastrar
                       ReorderableDragStartListener(
                         index: index,
                         child: Padding(
