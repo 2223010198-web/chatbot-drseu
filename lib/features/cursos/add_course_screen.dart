@@ -282,6 +282,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
             // --- 2. DATOS GENERALES ---
             GeneralInfoCard(
               info: _generalInfo,
+              linkController: _linkCtrl,
               showVariables: _showVariables, // Pasamos estado del switch
               onUpdate: () => setState((){}),
             ),

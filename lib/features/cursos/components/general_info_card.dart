@@ -4,10 +4,11 @@ import '../../../models/course_model.dart';
 
 class GeneralInfoCard extends StatefulWidget {
   final GeneralInfo info;
+  final TextEditingController linkController;
   final bool showVariables; // <--- RECIBE EL ESTADO
   final VoidCallback onUpdate;
 
-  const GeneralInfoCard({Key? key, required this.info, required this.showVariables, required this.onUpdate}) : super(key: key);
+  const GeneralInfoCard({Key? key, required this.info, required this.linkController, required this.showVariables, required this.onUpdate}) : super(key: key);
 
   @override
   _GeneralInfoCardState createState() => _GeneralInfoCardState();
@@ -71,6 +72,8 @@ class _GeneralInfoCardState extends State<GeneralInfoCard> {
                       ),
                     ),
 
+
+
                   InkWell(
                     onTap: _pickDate,
                     child: InputDecorator(
@@ -96,6 +99,22 @@ class _GeneralInfoCardState extends State<GeneralInfoCard> {
                   SizedBox(height: 10),
                   _buildNumField("Costo Conadis", (val) => widget.info.costoConadis = val, widget.info.costoConadis, "{{costo3}}"),
                   SizedBox(height: 15),
+
+                  // --- 1. LINK DE INSCRIPCIÓN (REINTEGRADO AQUÍ) ---
+                  TextFormField(
+                    controller: widget.linkController,
+                    decoration: InputDecoration(
+                        labelText: "Link de Inscripción (Forms/Web)",
+                        hintText: "https://forms.gle/...",
+                        prefixIcon: Icon(Icons.link),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                        helperText: "Usado por el chatbot para inscripciones",
+                        helperStyle: TextStyle(color: Colors.teal.shade700)
+                    ),
+                  ),
+                  SizedBox(height: 15),
+
                   TextFormField(
                     initialValue: widget.info.certPdfForms,
                     decoration: InputDecoration(
