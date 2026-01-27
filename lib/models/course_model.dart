@@ -191,6 +191,7 @@ class Grupo {
   String fechaInicio;
   String fechaFin;
   String modalidad;
+  String duracion;
   bool visibleChatbot;
 
   Grupo({
@@ -201,6 +202,7 @@ class Grupo {
     required this.fechaInicio,
     required this.fechaFin,
     this.modalidad = 'Virtual',
+    this.duracion = '',
     this.visibleChatbot = true,
   });
 
@@ -213,6 +215,7 @@ class Grupo {
       fechaInicio: fechaInicio,
       fechaFin: fechaFin,
       modalidad: modalidad,
+      duracion: duracion,
       visibleChatbot: visibleChatbot,
     );
   }
@@ -237,6 +240,7 @@ class Grupo {
     'fecha_inicio': fechaInicio,
     'fecha_fin': fechaFin,
     'modalidad': modalidad,
+    'duracion': duracion,
     'visible_chatbot': visibleChatbot,
     // Variables pre-formateadas
     'var_dias': diasFormateados,
@@ -252,6 +256,7 @@ class Grupo {
       fechaInicio: map['fecha_inicio'] ?? '',
       fechaFin: map['fecha_fin'] ?? '',
       modalidad: map['modalidad'] ?? 'Virtual',
+      duracion: map['duracion'] ?? '',
       visibleChatbot: map['visible_chatbot'] ?? true,
     );
   }

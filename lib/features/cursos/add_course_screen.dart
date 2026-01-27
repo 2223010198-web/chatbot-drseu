@@ -1,5 +1,7 @@
+import 'dart:convert'; // Para jsonEncode
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:http/http.dart' as http; // Para conectar con el Script
 import '../../models/course_model.dart';
 import 'components/general_info_card.dart';
 import 'components/label_card.dart';
@@ -18,6 +20,8 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
   final _formKey = GlobalKey<FormState>();
   final DatabaseReference _dbRef = FirebaseDatabase.instance.ref().child('oferta_educativa');
 
+  final String _googleScriptUrl = "https://script.google.com/macros/s/AKfycbxyrMpi_L62w_G_T0Wz8Uc8rc4DASb8ZtzU_Kl4Tm23tcehjjU1hBTc9RN-nzcpwIM/exec";
+
   // Controladores básicos
   late TextEditingController _tituloCtrl;
   late TextEditingController _descCtrl;
@@ -34,6 +38,9 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
   late List<Etiqueta> _etiquetas;
   bool _isUploading = false;
 
+  // --- ESTADO DE VISIBILIDAD DE VARIABLES ---
+  bool _showVariables = false;
+
   @override
   void initState() {
     super.initState();
@@ -47,11 +54,9 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
 
     if (c != null) {
       _categoria = c.categoria;
-      // Aseguramos que la categoría del curso exista en la lista
       if (!_categoriasOptions.contains(_categoria)) {
         _categoriasOptions.add(_categoria);
       }
-
       _generalInfo = c.generalInfo;
       _etiquetas = List.from(c.etiquetas);
     } else {
@@ -64,7 +69,6 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
     }
   }
 
-  // --- LÓGICA DE CATEGORÍAS ---
   void _mostrarDialogoNuevaCategoria() {
     final TextEditingController _nuevaCatCtrl = TextEditingController();
     showDialog(
@@ -97,14 +101,13 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
   }
 
   void _eliminarCategoriaActual() {
-    if (_categoriasOptions.length <= 1) return; // No dejar vacío
+    if (_categoriasOptions.length <= 1) return;
     setState(() {
       _categoriasOptions.remove(_categoria);
-      _categoria = _categoriasOptions.first; // Seleccionar la primera disponible
+      _categoria = _categoriasOptions.first;
     });
   }
 
-  // Utilidad ID
   String? extraerGoogleId(String input) {
     if (input.isEmpty) return null;
     if (!input.contains("http")) return input.trim();
@@ -113,11 +116,35 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
     return match != null ? match.group(1) : input;
   }
 
+  // --- 🔥 NUEVA FUNCIÓN: DISPARADOR WEBHOOK ---
+  Future<void> _triggerGoogleSync(String courseKey) async {
+    if (_googleScriptUrl.contains("TU_URL")) {
+      print("⚠️ URL de script no configurada.");
+      return;
+    }
+    try {
+      print("🚀 Solicitando sincronización para: $courseKey");
+      final response = await http.post(
+        Uri.parse(_googleScriptUrl),
+        body: jsonEncode({'courseId': courseKey}),
+        headers: {'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200 || response.statusCode == 302) {
+        print("✅ Sincronización OK");
+      } else {
+        print("⚠️ Error Server Script: ${response.body}");
+      }
+    } catch (e) {
+      print("❌ Error de red al sincronizar: $e");
+    }
+  }
   Future<void> _saveCourse() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _isUploading = true);
 
     try {
+      // 1. Calcular Orden (Solo si es nuevo)
       int ordenFinal = 9999;
       if (widget.courseKey == null) {
         final snap = await _dbRef.orderByChild('orden').limitToLast(1).get();
@@ -132,6 +159,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
         ordenFinal = widget.cursoExistente?.orden ?? 9999;
       }
 
+      // 2. Crear Objeto Curso
       final nuevoCurso = Curso(
         titulo: _tituloCtrl.text,
         descripcion: _descCtrl.text,
@@ -149,12 +177,36 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
         etiquetas: _etiquetas,
       );
 
+      // 3. Guardar en Firebase
+      String keyFinal = widget.courseKey ?? '';
+
       if (widget.courseKey == null) {
-        await _dbRef.push().set(nuevoCurso.toJson());
+        // Guardar Nuevo
+        final newRef = await _dbRef.push();
+        await newRef.set(nuevoCurso.toJson());
+        keyFinal = newRef.key!;
       } else {
+        // Actualizar Existente
         await _dbRef.child(widget.courseKey!).update(nuevoCurso.toJson());
       }
+
+      // 4. 🔥 DISPARAR SINCRONIZACIÓN (Segundo plano)
+      // No usamos 'await' bloqueante para que la UI responda rápido
+      _triggerGoogleSync(keyFinal).then((_) {
+        // Opcional: Mostrar confirmación extra en consola
+        print("Sincronización terminada para $keyFinal");
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("✅ Curso guardado. Actualizando Google Forms/Slides..."),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.green,
+          )
+      );
+
       Navigator.pop(context);
+
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
@@ -171,17 +223,28 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
         foregroundColor: Colors.white,
       ),
       body: _isUploading
-          ? Center(child: CircularProgressIndicator())
+          ? Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 20),
+            Text("Guardando cambios..."),
+          ],
+        ),
+      )
           : Form(
         key: _formKey,
         child: ListView(
           padding: EdgeInsets.all(16),
           children: [
-            // 1. INFO BÁSICA
-            TextFormField(controller: _tituloCtrl, decoration: InputDecoration(labelText: "Título", border: OutlineInputBorder())),
+            // --- 1. INFO BÁSICA ---
+            TextFormField(
+                controller: _tituloCtrl,
+                decoration: InputDecoration(labelText: "Título", border: OutlineInputBorder())
+            ),
             SizedBox(height: 15),
 
-            // --- SELECCIÓN DE CATEGORÍA RESTAURADA ---
             Text("Clasificación", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
             Row(
               children: [
@@ -202,17 +265,13 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                     onChanged: (val) => setState(() => _categoria = val!),
                   ),
                 ),
-                // Botón Agregar Categoría
                 IconButton(
                   icon: Icon(Icons.add_circle, color: Colors.teal),
-                  tooltip: "Crear nueva categoría",
                   onPressed: _mostrarDialogoNuevaCategoria,
                 ),
-                // Botón Eliminar Categoría (Solo si hay más de 1)
                 if (_categoriasOptions.length > 1)
                   IconButton(
                     icon: Icon(Icons.delete_outline, color: Colors.red),
-                    tooltip: "Eliminar esta categoría",
                     onPressed: _eliminarCategoriaActual,
                   ),
               ],
@@ -220,36 +279,56 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
 
             SizedBox(height: 20),
 
-            // 2. DATOS GENERALES
+            // --- 2. DATOS GENERALES ---
             GeneralInfoCard(
               info: _generalInfo,
+              showVariables: _showVariables, // Pasamos estado del switch
               onUpdate: () => setState((){}),
             ),
 
             SizedBox(height: 20),
             Divider(thickness: 2, color: Colors.teal),
 
-            // 3. GRUPOS Y ETIQUETAS
+            // --- 3. GRUPOS Y ETIQUETAS ---
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text("Grupos y Horarios", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal)),
-                ElevatedButton.icon(
-                  icon: Icon(Icons.add),
-                  label: Text("Nueva Etiqueta"),
-                  onPressed: () {
-                    setState(() {
-                      _etiquetas.add(Etiqueta(nombre: "Nueva Etiqueta", grupos: []));
-                    });
-                  },
+                Text("Grupos", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.teal)),
+
+                // Switch "Vars" y Botón Agregar Etiqueta
+                Row(
+                  children: [
+                    Text("Vars", style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    Switch(
+                      value: _showVariables,
+                      activeColor: Colors.purple,
+                      onChanged: (val) {
+                        setState(() {
+                          _showVariables = val;
+                        });
+                      },
+                    ),
+                    ElevatedButton.icon(
+                      icon: Icon(Icons.add, size: 18),
+                      label: Text("Etiqueta"),
+                      style: ElevatedButton.styleFrom(padding: EdgeInsets.symmetric(horizontal: 10)),
+                      onPressed: () {
+                        setState(() {
+                          _etiquetas.add(Etiqueta(nombre: "Nueva Etiqueta", grupos: []));
+                        });
+                      },
+                    ),
+                  ],
                 )
               ],
             ),
 
+            // Renderizar Etiquetas
             ..._etiquetas.asMap().entries.map((entry) {
               return LabelCard(
                 labelIndex: entry.key + 1,
                 etiqueta: entry.value,
+                showVariables: _showVariables, // Pasamos estado
                 onDuplicate: (orig) => setState(() => _etiquetas.add(orig.clone())),
                 onDelete: () => setState(() => _etiquetas.removeAt(entry.key)),
                 onUpdate: () => setState((){}),
@@ -258,7 +337,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
 
             SizedBox(height: 20),
 
-            // 4. AUTOMATIZACIÓN GOOGLE
+            // --- 4. AUTOMATIZACIÓN GOOGLE ---
             ExpansionTile(
               title: Text("🤖 Automatización (Google)", style: TextStyle(fontWeight: FontWeight.bold)),
               children: [
@@ -266,8 +345,14 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                   padding: EdgeInsets.all(10),
                   child: Column(
                     children: [
-                      TextFormField(controller: _formIdCtrl, decoration: InputDecoration(labelText: "ID Google Form", prefixIcon: Icon(Icons.list_alt))),
-                      TextFormField(controller: _slideIdCtrl, decoration: InputDecoration(labelText: "ID Google Slide", prefixIcon: Icon(Icons.slideshow))),
+                      TextFormField(
+                          controller: _formIdCtrl,
+                          decoration: InputDecoration(labelText: "ID Google Form", prefixIcon: Icon(Icons.list_alt))
+                      ),
+                      TextFormField(
+                          controller: _slideIdCtrl,
+                          decoration: InputDecoration(labelText: "ID Google Slide", prefixIcon: Icon(Icons.slideshow))
+                      ),
                     ],
                   ),
                 )
@@ -275,10 +360,15 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
             ),
 
             SizedBox(height: 30),
+
+            // BOTÓN GUARDAR
             ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.teal, padding: EdgeInsets.symmetric(vertical: 15)),
+                style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.teal,
+                    padding: EdgeInsets.symmetric(vertical: 15)
+                ),
                 onPressed: _saveCourse,
-                child: Text("GUARDAR CURSO", style: TextStyle(fontSize: 18, color: Colors.white))
+                child: Text("GUARDAR Y SINCRONIZAR", style: TextStyle(fontSize: 18, color: Colors.white))
             ),
             SizedBox(height: 30),
           ],
