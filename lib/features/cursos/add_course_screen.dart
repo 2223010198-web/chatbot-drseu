@@ -20,14 +20,26 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
   final _formKey = GlobalKey<FormState>();
   final DatabaseReference _dbRef = FirebaseDatabase.instance.ref().child('oferta_educativa');
 
-  final String _googleScriptUrl = "https://script.google.com/macros/s/AKfycbxyrMpi_L62w_G_T0Wz8Uc8rc4DASb8ZtzU_Kl4Tm23tcehjjU1hBTc9RN-nzcpwIM/exec";
+  final String _googleScriptUrl = "https://script.google.com/macros/s/AKfycbzJNcexts5tg1Hb_1ja18QXsTGUDWysVzsxmVqsPl4jYCxMTs0WwVgJ15XXsTEozR4/exec";
 
   // Controladores básicos
   late TextEditingController _tituloCtrl;
   late TextEditingController _descCtrl;
   late TextEditingController _linkCtrl;
   late TextEditingController _formIdCtrl;
-  late TextEditingController _slideIdCtrl;
+//  late TextEditingController _slideIdCtrl;
+
+  // --- NUEVOS CONTROLADORES ---
+  // Para la Imagen (Cloudinary)
+  late TextEditingController _imgSlideIdCtrl;   // ID del archivo Slide para imagen
+  late TextEditingController _imgSlidePageCtrl; // Número de diapositiva (ej: 1)
+
+  // Para el PDF (Brochure)
+  late TextEditingController _pdfSlideIdCtrl;    // ID del archivo Slide para PDF
+  late TextEditingController _pdfSlideRangeCtrl; // Rango (ej: "1-3" o "1")
+
+  late TextEditingController _urlImagenResultCtrl;
+  late TextEditingController _urlPdfResultCtrl;
 
   // --- GESTIÓN DE CATEGORÍAS ---
   String _categoria = 'Cursos de Extensión';
@@ -50,8 +62,16 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
     _descCtrl = TextEditingController(text: c?.descripcion ?? '');
     _linkCtrl = TextEditingController(text: c?.linkInscripcion ?? '');
     _formIdCtrl = TextEditingController(text: c?.idsGoogle?['formId'] ?? '');
-    _slideIdCtrl = TextEditingController(text: c?.idsGoogle?['slideTemplateId'] ?? '');
 
+    _imgSlideIdCtrl = TextEditingController(text: c?.idsGoogle?['imgSlideId'] ?? '');
+    _imgSlidePageCtrl = TextEditingController(text: c?.idsGoogle?['imgPage'] ?? '1'); // Por defecto pág 1
+
+    // PDF
+    _pdfSlideIdCtrl = TextEditingController(text: c?.idsGoogle?['pdfSlideId'] ?? c?.idsGoogle?['slideTemplateId'] ?? ''); // Migración compatible
+    _pdfSlideRangeCtrl = TextEditingController(text: c?.idsGoogle?['pdfRange'] ?? '1');
+
+    _urlImagenResultCtrl = TextEditingController(text: c?.brochureUrl ?? '');
+    _urlPdfResultCtrl = TextEditingController(text: c?.pdfUrl ?? '');
     if (c != null) {
       _categoria = c.categoria;
       if (!_categoriasOptions.contains(_categoria)) {
@@ -171,7 +191,13 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
         orden: ordenFinal,
         idsGoogle: {
           'formId': extraerGoogleId(_formIdCtrl.text) ?? '',
-          'slideTemplateId': extraerGoogleId(_slideIdCtrl.text) ?? '',
+//          'slideTemplateId': extraerGoogleId(_slideIdCtrl.text) ?? '',
+          // --- NUEVOS CAMPOS GUARDADOS ---
+          'imgSlideId': extraerGoogleId(_imgSlideIdCtrl.text) ?? '',
+          'imgPage': _imgSlidePageCtrl.text.trim().isEmpty ? '1' : _imgSlidePageCtrl.text.trim(),
+
+          'pdfSlideId': extraerGoogleId(_pdfSlideIdCtrl.text) ?? '',
+          'pdfRange': _pdfSlideRangeCtrl.text.trim().isEmpty ? '1' : _pdfSlideRangeCtrl.text.trim(),
         },
         generalInfo: _generalInfo,
         etiquetas: _etiquetas,
@@ -345,17 +371,130 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                 Padding(
                   padding: EdgeInsets.all(10),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // SECCIÓN 1: FORMS
+                      Text("📝 Inscripciones", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
                       TextFormField(
                           controller: _formIdCtrl,
-                          decoration: InputDecoration(labelText: "ID Google Form", prefixIcon: Icon(Icons.list_alt))
+                          decoration: InputDecoration(labelText: "ID Google Form", prefixIcon: Icon(Icons.list_alt), isDense: true)
                       ),
+                      Divider(height: 30),
+
+                      // SECCIÓN 2: IMAGEN PROMOCIONAL (CLOUDINARY)
+                      Text("🖼️ Generación de Imagen (PNG)", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
                       TextFormField(
-                          controller: _slideIdCtrl,
-                          decoration: InputDecoration(labelText: "ID Google Slide", prefixIcon: Icon(Icons.slideshow))
+                          controller: _imgSlideIdCtrl,
+                          decoration: InputDecoration(
+                              labelText: "ID Google Slide (Para Imagen)",
+                              hintText: "ID del archivo de diseño",
+                              prefixIcon: Icon(Icons.image),
+                              isDense: true
+                          )
+                      ),
+                      SizedBox(height: 10),
+                      TextFormField(
+                          controller: _imgSlidePageCtrl,
+                          keyboardType: TextInputType.number,
+                          decoration: InputDecoration(
+                              labelText: "Número de Diapositiva",
+                              hintText: "Ej: 1 (La primera), 2 (La segunda)...",
+                              prefixIcon: Icon(Icons.pages),
+                              border: OutlineInputBorder(),
+                              isDense: true
+                          )
+                      ),
+                      Divider(height: 30),
+
+                      // SECCIÓN 3: BROCHURE (PDF)
+                      Text("📄 Generación de Brochure (PDF)", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
+                      TextFormField(
+                          controller: _pdfSlideIdCtrl,
+                          decoration: InputDecoration(
+                              labelText: "ID Google Slide (Para PDF)",
+                              hintText: "Puede ser el mismo ID de arriba u otro",
+                              prefixIcon: Icon(Icons.picture_as_pdf),
+                              isDense: true
+                          )
+                      ),
+                      SizedBox(height: 10),
+                      TextFormField(
+                          controller: _pdfSlideRangeCtrl,
+                          decoration: InputDecoration(
+                              labelText: "Rango de Diapositivas",
+                              hintText: "Ej: '1' (Solo una) o '1-3' (De la 1 a la 3)",
+                              prefixIcon: Icon(Icons.format_list_numbered),
+                              border: OutlineInputBorder(),
+                              isDense: true
+                          )
                       ),
                     ],
                   ),
+                )
+              ],
+            ),
+
+            SizedBox(height: 20),
+            Divider(thickness: 2, color: Colors.blue),
+
+            // --- 6. RESULTADOS DE SINCRONIZACIÓN ---
+            Text("📂 Archivos Generados (Nube)", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue)),
+            SizedBox(height: 10),
+
+            // CAMPO IMAGEN CLOUDINARY
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _urlImagenResultCtrl,
+                    readOnly: true, // No editable por usuario
+                    decoration: InputDecoration(
+                        labelText: "URL Imagen (Cloudinary)",
+                        border: OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Colors.grey[100]
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(Icons.copy),
+                  onPressed: () {
+                    // Lógica simple de copiado (requiere import 'package:flutter/services.dart';)
+                    // Si no quieres importar nada, el usuario puede seleccionar y copiar manualmente.
+                  },
+                )
+              ],
+            ),
+            SizedBox(height: 10),
+
+            // CAMPO PDF DRIVE
+            Row(
+              children: [
+                Expanded(
+                  child: TextFormField(
+                    controller: _urlPdfResultCtrl,
+                    readOnly: true,
+                    decoration: InputDecoration(
+                        labelText: "URL Brochure (PDF Drive)",
+                        border: OutlineInputBorder(),
+                        filled: true,
+                        fillColor: Colors.grey[100]
+                    ),
+                  ),
+                ),
+                SizedBox(width: 10),
+                ElevatedButton.icon(
+                  icon: Icon(Icons.download),
+                  label: Text("Abrir/Descargar"),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                  onPressed: () {
+                    final url = _urlPdfResultCtrl.text;
+                    if (url.isNotEmpty) {
+                      // Aquí podrías usar url_launcher si lo tienes instalado
+                      // O simplemente mostrar un diálogo con el link
+                      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Link copiado: $url")));
+                    }
+                  },
                 )
               ],
             ),

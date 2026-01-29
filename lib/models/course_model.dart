@@ -16,6 +16,8 @@ class Curso {
   GeneralInfo generalInfo;
   List<Etiqueta> etiquetas; // Reemplaza a la lista plana de grupos
 
+  String? pdfUrl;      // 🔥 NUEVO: Link del PDF en Drive
+
   Curso({
     this.key,
     required this.titulo,
@@ -29,6 +31,7 @@ class Curso {
     this.orden = 9999,
     required this.generalInfo,
     required this.etiquetas,
+    this.pdfUrl, // 🔥 Agregar al constructor
   });
 
   // Lógica para calcular la modalidad global
@@ -64,6 +67,7 @@ class Curso {
       // Guardamos la modalidad calculada para facilitar al script
       'modalidad_calculada': modalidadCalculada,
       'fileName': titulo.toLowerCase().replaceAll(' ', '_'),
+      'pdf_url': pdfUrl, // 🔥 Agregar al JSON
     };
   }
 
@@ -88,6 +92,7 @@ class Curso {
       linkInscripcion: map['link'] ?? '',
       activo: map['activo'] ?? false,
       brochureUrl: map['brochure_url'],
+      pdfUrl: map['pdf_url'], // 🔥 Leer del Mapa
       driveFileId: map['drive_file_id'],
       idsGoogle: map['ids_google'] != null ? Map<String, String>.from(map['ids_google']) : null,
       orden: map['orden'] ?? 9999,
