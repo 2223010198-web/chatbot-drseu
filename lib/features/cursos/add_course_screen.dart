@@ -20,7 +20,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
   final _formKey = GlobalKey<FormState>();
   final DatabaseReference _dbRef = FirebaseDatabase.instance.ref().child('oferta_educativa');
 
-  final String _googleScriptUrl = "https://script.google.com/macros/s/AKfycbzJNcexts5tg1Hb_1ja18QXsTGUDWysVzsxmVqsPl4jYCxMTs0WwVgJ15XXsTEozR4/exec";
+  final String _googleScriptUrl = "https://script.google.com/a/macros/untels.edu.pe/s/AKfycby9--246QZtElfQmkyNT-0g5kSIdsxmXMSPoa4NJk-j89WOthOF2d027rE9--wQcF7McQ/exec";
 
   // Controladores básicos
   late TextEditingController _tituloCtrl;
@@ -247,6 +247,18 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
         title: Text(widget.courseKey == null ? "Nuevo Curso" : "Editar Curso"),
         backgroundColor: Colors.teal,
         foregroundColor: Colors.white,
+        actions: [
+          // 🔥 NUEVO BOTÓN EN LA ESQUINA SUPERIOR DERECHA
+          // Deshabilitamos el botón si ya se está subiendo (_isUploading)
+          _isUploading
+              ? Padding(padding: EdgeInsets.all(14.0), child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+              : TextButton.icon(
+            onPressed: _saveCourse,
+            icon: Icon(Icons.save, color: Colors.white),
+            label: Text("GUARDAR", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          ),
+          SizedBox(width: 10),
+        ],
       ),
       body: _isUploading
           ? Center(
@@ -269,6 +281,7 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
                 controller: _tituloCtrl,
                 decoration: InputDecoration(labelText: "Título", border: OutlineInputBorder())
             ),
+
             SizedBox(height: 15),
 
             Text("Clasificación", style: TextStyle(fontWeight: FontWeight.bold, color: Colors.teal)),
@@ -499,18 +512,8 @@ class _AddCourseScreenState extends State<AddCourseScreen> {
               ],
             ),
 
-            SizedBox(height: 30),
+            SizedBox(height: 40),
 
-            // BOTÓN GUARDAR
-            ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.teal,
-                    padding: EdgeInsets.symmetric(vertical: 15)
-                ),
-                onPressed: _saveCourse,
-                child: Text("GUARDAR Y SINCRONIZAR", style: TextStyle(fontSize: 18, color: Colors.white))
-            ),
-            SizedBox(height: 30),
           ],
         ),
       ),
